@@ -1,4 +1,4 @@
-MAIN = main
+MAIN = ula_stein_evt_gen
 
 .PHONY: all clean distclean
 

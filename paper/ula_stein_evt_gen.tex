@@ -16,7 +16,7 @@
 \usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
 \usepackage[nameinlink,noabbrev]{cleveref}
 
-\graphicspath{{figures/}{../plots/}}
+\graphicspath{{figures/}}
 
 \newcommand{\dd}{\mathrm{d}}
 \newcommand{\GeV}{\mathrm{GeV}}
@@ -28,8 +28,13 @@
 \newsavebox{\crosssectionsteinplotbox}
 
 \title{Event Generation with Parallel Langevin Sampling and Learned Stein Diagnostics}
-\author{Rob Verheyen}
-\date{\today}
+\author{
+  \parbox{0.96\textwidth}{\centering
+    Rob Verheyen\footnote{\href{mailto:robverheyen@gmail.com}{robverheyen@gmail.com}}\\
+    {\small\textit{Department of Physics and Astronomy, University College London, London, WC1E 6BT, UK}}
+  }
+}
+\date{}
 
 \begin{document}
 
@@ -76,7 +81,7 @@ These approaches are however still ultimately based on rejection sampling and th
 In this work, we propose a different approach based on parallelized Markov chain Monte Carlo (MCMC) supplemented by an ML-based convergence diagnostic. 
 MCMC methods have previously been explored for hard-process phase-space sampling and event generation~\cite{Kharraziha:1999iw,Weinzierl:2001ny,Kroeninger:2014bwa,LaCagnina:2024wcc}.
 Our method places particular emphasis on avoiding within-chain autocorrelations and on reaching MCMC stationarity, i.e. samples being representative of $\widetilde{p}(x)$. 
-Furthermore, we investigate how neural network surrogates of the target distribution can further reduce the required number of matrix-element evaluations~\cite{Danziger:2021eeg,Janssen:2023ahv,Herrmann:2025nnz}. 
+Furthermore, we investigate how neural network surrogates of the target distribution can further reduce the required number of matrix-element evaluations~\cite{Danziger:2021eeg,Janssen:2023ahv,Herrmann:2025nnz}.\footnote{The code used in this study is available at \url{https://github.com/rbvh/ula_stein_evt_gen}.} 
 
 \section{Method}
 
@@ -342,7 +347,7 @@ The present study considers a fixed partonic channel, tree-level matrix elements
 The observed scaling, and more generally any comparison with current methods, can only be tested in the context of an implementation in full event generator programs.
 Still, the combination of parallel chains, an explicit relaxation-time diagnostic, and surrogate initialization provides a concrete route towards event generation in which the expensive exact target is evaluated as few times as possible.
 
-\bibliographystyle{unsrtnat}
+\bibliographystyle{JHEP}
 \bibliography{refs}
 
 \end{document}

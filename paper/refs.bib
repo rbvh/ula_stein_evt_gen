@@ -60,9 +60,11 @@
   publisher = {PMLR}
 }
 
-@misc{Hsieh:2018mld,
+@inproceedings{Hsieh:2018mld,
   author        = {Hsieh, Ya-Ping and Kavis, Ali and Rolland, Paul and Cevher, Volkan},
   title         = {{Mirrored Langevin Dynamics}},
+  booktitle     = {Advances in Neural Information Processing Systems},
+  volume        = {31},
   eprint        = {1802.10174},
   archivePrefix = {arXiv},
   primaryClass  = {cs.LG},
@@ -88,55 +90,67 @@
   publisher = {PMLR}
 }
 
-@article{neal2011mcmc,
-  title={MCMC using Hamiltonian dynamics},
-  author={Neal, Radford M},
-  journal={Handbook of markov chain monte carlo},
-  pages={47--95},
+@incollection{neal2011mcmc,
+  title={{MCMC} using {Hamiltonian} dynamics},
+  author={Neal, Radford M.},
+  booktitle={Handbook of Markov Chain Monte Carlo},
+  pages={113--162},
   year={2011},
-  publisher={Chapman and Hall/CRC}
+  publisher={Chapman and Hall/CRC},
+  eprint        = {1206.1901},
+  archivePrefix = {arXiv},
 }
 
 @article{hoffman2014no,
-  title={The No-U-Turn sampler: adaptively setting path lengths in Hamiltonian Monte Carlo.},
-  author={Hoffman, Matthew D and Gelman, Andrew and others},
+  title={{The No-U-Turn Sampler}: Adaptively Setting Path Lengths in {Hamiltonian Monte Carlo}},
+  author={Hoffman, Matthew D. and Gelman, Andrew},
   journal={J. Mach. Learn. Res.},
   volume={15},
   number={1},
   pages={1593--1623},
-  year={2014}
+  year={2014},
+  eprint={1111.4246},
+  archivePrefix={arXiv},
 }
 
 @article{brosse2019tamed,
-  title={The tamed unadjusted Langevin algorithm},
+  title={{The Tamed Unadjusted Langevin Algorithm}},
   author={Brosse, Nicolas and Durmus, Alain and Moulines, {\'E}ric and Sabanis, Sotirios},
   journal={Stochastic Processes and their Applications},
   volume={129},
   number={10},
   pages={3638--3663},
   year={2019},
-  publisher={Elsevier}
+  publisher={Elsevier},
+  eprint={1710.05559},
+  archivePrefix={arXiv},
 }
 
 @article{roberts1996exponential,
-  title={Exponential convergence of Langevin distributions and their discrete approximations},
-  author={Roberts, Gareth O and Tweedie, Richard L},
-  year={1996}
+  author  = {Roberts, Gareth O. and Tweedie, Richard L.},
+  title   = {{Exponential convergence of Langevin distributions and their discrete approximations}},
+  journal = {Bernoulli},
+  volume  = {2},
+  number  = {4},
+  pages   = {341--363},
+  year    = {1996}
 }
 
 @inproceedings{cheng2018underdamped,
-  title={Underdamped Langevin MCMC: A non-asymptotic analysis},
+  title={{Underdamped Langevin MCMC}: A Non-Asymptotic Analysis},
   author={Cheng, Xiang and Chatterji, Niladri S and Bartlett, Peter L and Jordan, Michael I},
-  booktitle={Conference on learning theory},
+  booktitle={Conference on Learning Theory},
   pages={300--323},
   year={2018},
-  organization={PMLR}
+  organization={PMLR},
+  eprint={1707.03663},
+  archivePrefix={arXiv},
 }
 
 @article{gelman1997weak,
-  title={Weak convergence and optimal scaling of random walk Metropolis algorithms},
+  title={{Weak Convergence and Optimal Scaling of Random Walk Metropolis Algorithms}},
   author={Gelman, Andrew and Gilks, Walter R and Roberts, Gareth O},
-  journal={The annals of applied probability},
+  journal={{The Annals of Applied Probability}},
   volume={7},
   number={1},
   pages={110--120},
@@ -165,7 +179,7 @@
 }
 
 @article{girolami2011riemann,
-  title={Riemann manifold langevin and hamiltonian monte carlo methods},
+  title={{Riemann Manifold Langevin and Hamiltonian Monte Carlo Methods}},
   author={Girolami, Mark and Calderhead, Ben},
   journal={Journal of the Royal Statistical Society Series B: Statistical Methodology},
   volume={73},
@@ -185,127 +199,150 @@
 }
 
 @article{robbins1951stochastic,
-  title={A stochastic approximation method},
+  title={{A Stochastic Approximation Method}},
   author={Robbins, Herbert and Monro, Sutton},
-  journal={The annals of mathematical statistics},
+  journal={{The Annals of Mathematical Statistics}},
   pages={400--407},
   year={1951},
   publisher={JSTOR}
 }
 
 @article{hu2018stein,
-  title={Stein neural sampler},
+  title={{Stein Neural Sampler}},
   author={Hu, Tianyang and Chen, Zixiang and Sun, Hanxi and Bai, Jincheng and Ye, Mao and Cheng, Guang},
-  journal={arXiv preprint arXiv:1810.03545},
+  eprint={1810.03545},
+  archivePrefix={arXiv},
   year={2018}
 }
 
 @inproceedings{grathwohl2020learning,
-  title={Learning the stein discrepancy for training and evaluating energy-based models without sampling},
+  title={{Learning the Stein Discrepancy for Training and Evaluating Energy-Based Models Without Sampling}},
   author={Grathwohl, Will and Wang, Kuan-Chieh and Jacobsen, J{\"o}rn-Henrik and Duvenaud, David and Zemel, Richard},
   booktitle={International Conference on Machine Learning},
   pages={3732--3747},
   year={2020},
-  organization={PMLR}
+  organization={PMLR},
+  eprint={2002.05616},
+  archivePrefix={arXiv},
 }
 
-@article{gorham2015measuring,
-  title={Measuring sample quality with Stein's method},
+@inproceedings{gorham2015measuring,
+  title={{Measuring Sample Quality with Stein's Method}},
   author={Gorham, Jackson and Mackey, Lester},
-  journal={Advances in neural information processing systems},
+  booktitle={Advances in Neural Information Processing Systems},
   volume={28},
-  year={2015}
+  year={2015},
+  eprint={1506.03039},
+  archivePrefix={arXiv},
 }
 
 @article{anastasiou2023stein,
-  title={Stein’s method meets computational statistics: A review of some recent developments},
+  title={{Stein's Method Meets Computational Statistics: A Review of Some Recent Developments}},
   author={Anastasiou, Andreas and Barp, Alessandro and Briol, Fran{\c{c}}ois-Xavier and Ebner, Bruno and Gaunt, Robert E and Ghaderinezhad, Fatemeh and Gorham, Jackson and Gretton, Arthur and Ley, Christophe and Liu, Qiang and others},
   journal={Statistical Science},
   volume={38},
   number={1},
   pages={120--139},
   year={2023},
-  publisher={Institute of Mathematical Statistics}
+  publisher={Institute of Mathematical Statistics},
+  eprint={2105.03481},
+  archivePrefix={arXiv},
 }
 
 @inproceedings{liu2016kernelized,
-  title={A kernelized Stein discrepancy for goodness-of-fit tests},
+  title={{A Kernelized Stein Discrepancy for Goodness-of-Fit Tests}},
   author={Liu, Qiang and Lee, Jason and Jordan, Michael},
-  booktitle={International conference on machine learning},
+  booktitle={International Conference on Machine Learning},
   pages={276--284},
   year={2016},
-  organization={PMLR}
+  organization={PMLR},
+  eprint={1602.03253},
+  archivePrefix={arXiv},
 }
 
 @inproceedings{chwialkowski2016kernel,
-  title={A kernel test of goodness of fit},
+  title={{A Kernel Test of Goodness of Fit}},
   author={Chwialkowski, Kacper and Strathmann, Heiko and Gretton, Arthur},
-  booktitle={International conference on machine learning},
+  booktitle={International Conference on Machine Learning},
   pages={2606--2615},
   year={2016},
-  organization={PMLR}
+  organization={PMLR},
+  eprint={1602.02964},
+  archivePrefix={arXiv},
 }
 
 @inproceedings{gorham2017measuring,
-  title={Measuring sample quality with kernels},
+  title={{Measuring Sample Quality with Kernels}},
   author={Gorham, Jackson and Mackey, Lester},
   booktitle={International Conference on Machine Learning},
   pages={1292--1301},
   year={2017},
-  organization={PMLR}
+  organization={PMLR},
+  eprint={1703.01717},
+  archivePrefix={arXiv},
 }
 
 @article{liu2022estimating,
-  title={Estimating density models with truncation boundaries using score matching},
+  title={{Estimating Density Models with Truncation Boundaries Using Score Matching}},
   author={Liu, Song and Kanamori, Takafumi and Williams, Daniel J},
   journal={Journal of Machine Learning Research},
   volume={23},
   number={186},
   pages={1--38},
-  year={2022}
+  year={2022},
+  eprint={1910.03834},
+  archivePrefix={arXiv},
 }
 
 @inproceedings{williams2023approximate,
-  title={Approximate stein classes for truncated density estimation},
+  title={{Approximate Stein Classes for Truncated Density Estimation}},
   author={Williams, Daniel James and Liu, Song},
   booktitle={International Conference on Machine Learning},
   pages={37066--37090},
   year={2023},
-  organization={PMLR}
+  organization={PMLR},
+  eprint={2306.00602},
+  archivePrefix={arXiv},
 }
 
 @inproceedings{xu2022standardisation,
-  title={Standardisation-function kernel Stein discrepancy: A unifying view on kernel Stein discrepancy tests for goodness-of-fit},
+  title={{Standardisation-Function Kernel Stein Discrepancy: A Unifying View on Kernel Stein Discrepancy Tests for Goodness-of-Fit}},
   author={Xu, Wenkai},
   booktitle={International Conference on Artificial Intelligence and Statistics},
   pages={1575--1597},
   year={2022},
-  organization={PMLR}
+  organization={PMLR},
+
 }
 
 @inproceedings{martens2015optimizing,
-  title={Optimizing neural networks with kronecker-factored approximate curvature},
+  title={{Optimizing Neural Networks with Kronecker-Factored Approximate Curvature}},
   author={Martens, James and Grosse, Roger},
-  booktitle={International conference on machine learning},
+  booktitle={International Conference on Machine Learning},
   pages={2408--2417},
   year={2015},
   organization={PMLR}
 }
 
-@article{kingma2014adam,
-  title={Adam: A method for stochastic optimization},
-  author={Kingma, Diederik P and Ba, Jimmy},
-  journal={arXiv preprint arXiv:1412.6980},
-  year={2014}
+@inproceedings{kingma2014adam,
+  author        = {Kingma, Diederik P. and Ba, Jimmy},
+  title         = {{Adam: A Method for Stochastic Optimization}},
+  booktitle     = {International Conference on Learning Representations},
+  eprint        = {1412.6980},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  year          = {2015}
 }
 
 @inproceedings{chewi2021optimal,
-  title={Optimal dimension dependence of the Metropolis-adjusted Langevin algorithm},
+  title={{Optimal Dimension Dependence of the Metropolis-Adjusted Langevin Algorithm}},
   author={Chewi, Sinho and Lu, Chen and Ahn, Kwangjun and Cheng, Xiang and Le Gouic, Thibaut and Rigollet, Philippe},
   booktitle={Conference on Learning Theory},
   pages={1260--1300},
   year={2021},
-  organization={PMLR}
+  organization={PMLR},
+  eprint={2012.12810},
+  archivePrefix={arXiv},
 }
 
 @article{Heinrich:2022xfa,
@@ -367,10 +404,11 @@
     year = "2023"
 }
 
-@article{bradbury2018jax,
-  title={JAX: composable transformations of Python+ NumPy programs},
-  author={Bradbury, James and Frostig, Roy and Hawkins, Peter and Johnson, Matthew James and Leary, Chris and Maclaurin, Dougal and Necula, George and Paszke, Adam and VanderPlas, Jake and Wanderman-Milne, Skye and others},
-  year={2018}
+@misc{bradbury2018jax,
+  author       = {Bradbury, James and Frostig, Roy and Hawkins, Peter and Johnson, Matthew James and Katariya, Yash and Leary, Chris and Maclaurin, Dougal and Necula, George and Paszke, Adam and VanderPlas, Jake and Wanderman-Milne, Skye and Zhang, Qiao},
+  title        = {{JAX}: composable transformations of {Python}+{NumPy} programs},
+  howpublished = {\url{https://github.com/jax-ml/jax}},
+  year         = {2018}
 }
 
 @article{Bishara:2019iwh,
@@ -535,8 +573,11 @@
     archivePrefix = "arXiv",
     primaryClass = "hep-ph",
     reportNumber = "MCNET-25-12",
-    month = "6",
-    year = "2025"
+    doi = "10.21468/SciPostPhys.20.3.071",
+    journal = "SciPost Phys.",
+    volume = "20",
+    pages = "071",
+    year = "2026"
 }
 
 @article{Bahl:2025xvx,
@@ -720,7 +761,7 @@
 }
 
 @book{EuropeanStrategyGroup:2020pow,
-    collaboration = "European Strategy~Group",
+    author = "{European Strategy Group}",
     title = "{2020 Update of the European Strategy for Particle Physics}",
     reportNumber = "CERN-ESU-013, CERN-ESU-015",
     doi = "10.17181/ESU2020",
@@ -730,13 +771,14 @@
     year = "2020"
 }
 
-@article{ZurbanoFernandez:2020cco,
+@book{ZurbanoFernandez:2020cco,
     author = "Zurbano Fernandez, I. and others",
-    editor = {B{\'e}jar Alonso, I. and Br{\"u}ning, O. and Fessia, P. and Rossi, L. and Tavian, L. and Zerlauth, M.},
     title = "{High-Luminosity Large Hadron Collider (HL-LHC): Technical design report}",
-    reportNumber = "CERN-2020-010",
+    series = "CERN Yellow Reports: Monographs",
+    number = "10/2020",
+    publisher = "CERN",
+    address = "Geneva",
     doi = "10.23731/CYRM-2020-0010",
-    volume = "10/2020",
     month = "12",
     year = "2020"
 }
@@ -1057,7 +1099,7 @@
 }
 
 @article{stein2004use,
-  title={Use of exchangeable pairs in the analysis of simulations},
+  title={{Use of Exchangeable Pairs in the Analysis of Simulations}},
   author={Stein, Charles and Diaconis, Persi and Holmes, Susan and Reinert, Gesine},
   journal={Lecture Notes-Monograph Series},
   pages={1--26},
@@ -1068,7 +1110,7 @@
 @article{baur1983complexity,
   title={The complexity of partial derivatives},
   author={Baur, Walter and Strassen, Volker},
-  journal={Theoretical computer science},
+  journal={{Theoretical Computer Science}},
   volume={22},
   number={3},
   pages={317--330},
@@ -1082,7 +1124,7 @@
   booktitle={Optimization stories},
   pages={389--400},
   year={2012},
-  publisher={European Mathematical Society-EMS-Publishing House GmbH}
+  publisher={European Mathematical Society Publishing House}
 }
 
 @article{Catani:1993hr,

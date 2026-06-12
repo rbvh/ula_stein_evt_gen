@@ -21,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 cuda12 = ["jax[cuda12]==0.5.3"]
+gpu = ["jax[cuda12]==0.5.3"]
 
 [tool.setuptools]
 packages = [
