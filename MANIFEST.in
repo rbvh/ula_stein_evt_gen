@@ -1,0 +1,3 @@
+include README.md
+recursive-include ula_stein_evt_gen/cross_section/lhapdf *.dat *.info
+

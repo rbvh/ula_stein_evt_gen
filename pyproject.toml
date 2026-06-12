@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ula-stein-evt-gen"
+version = "0.1.0"
+description = "Langevin event generation and learned Stein diagnostics for vector-boson plus jets."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "jax==0.5.3",
+    "flax",
+    "optax",
+    "kfac_jax==0.0.8",
+    "jax_dataclasses",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+cuda12 = ["jax[cuda12]==0.5.3"]
+
+[tool.setuptools]
+packages = [
+    "ula_stein_evt_gen",
+    "ula_stein_evt_gen.cross_section",
+    "ula_stein_evt_gen.cross_section.v_jets",
+    "ula_stein_evt_gen.cross_section.v_jets.model",
+    "ula_stein_evt_gen.cross_section.v_jets.processes",
+]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"ula_stein_evt_gen.cross_section" = ["lhapdf/*.dat", "lhapdf/*.info"]
