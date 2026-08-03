@@ -7,6 +7,7 @@ name = "ula-stein-evt-gen"
 version = "0.1.0"
 description = "Langevin event generation and learned Stein diagnostics for vector-boson plus jets."
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
@@ -24,6 +25,7 @@ cuda12 = ["jax[cuda12]==0.5.3"]
 gpu = ["jax[cuda12]==0.5.3"]
 
 [tool.setuptools]
+license-files = ["LICENSE", "THIRD_PARTY_LICENSES.md"]
 packages = [
     "ula_stein_evt_gen",
     "ula_stein_evt_gen.cross_section",

@@ -1,0 +1,360 @@
+\documentclass{article}
+
+% Official NeurIPS 2026 double-blind workshop format.
+\PassOptionsToPackage{numbers,sort&compress}{natbib}
+\usepackage[dblblindworkshop]{neurips_2026}
+\workshoptitle{Sim2Science}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\usepackage[nameinlink,noabbrev]{cleveref}
+
+\graphicspath{{figures/}}
+
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\GeV}{\mathrm{GeV}}
+\newcommand{\TeV}{\mathrm{TeV}}
+\newcommand{\pT}{p_{\mathrm{T}}}
+\newcommand{\Zjets}{Z+\mathrm{jets}}
+\newcommand{\udl}{\mathrm{UDL}}
+\newcommand{\vegas}{\textsc{Vegas}}
+\newsavebox{\crosssectionsteinplotbox}
+
+\title{Event Generation with Parallel Langevin Sampling and Learned Stein Diagnostics}
+\author{
+  \parbox{0.96\textwidth}{\centering
+    Rob Verheyen\footnote{\href{mailto:robverheyen@gmail.com}{robverheyen@gmail.com}}\\
+    {\small\textit{Department of Physics and Astronomy, University College London, London, WC1E 6BT, UK}}
+  }
+}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Efficient event generation is a major computational challenge for precision collider simulations, especially for high-multiplicity final states where matrix-element evaluations are expensive and rejection-sampling efficiencies are low.
+We study an alternative approach based on many parallel underdamped Langevin chains, retaining one terminal state from each chain to obtain unweighted events while avoiding within-chain autocorrelation.
+A learned Stein discrepancy is used as a convergence diagnostic, providing a data-driven estimate of the relaxation time.
+We apply the method to tree-level $u\bar u\to Z+n g$ event generation and find that relaxation requires only a modest number of exact-target Langevin steps, with mild growth over the multiplicities studied.
+Finally, we show that simple neural-network surrogate initialization can substantially reduce the required number of exact matrix-element and gradient evaluations.
+\end{abstract}
+
+
+\section{Introduction}
+Monte Carlo event simulation is central to particle physics, connecting theoretical predictions with experimental measurements.
+The high-luminosity upgrade to the Large Hadron Collider (LHC)~\cite{ZurbanoFernandez:2020cco} and its potential successors~\cite{FCC:2018evy,FCC:2018vvp} will demand unprecedented precision and correspondingly large simulated samples, whose production is expected to become a dominant computational bottleneck~\cite{Buckley:2011ms,Narain:2022qud,HEPSoftwareFoundation:2017ggl,HSFPhysicsEventGeneratorWG:2020gxw,EuropeanStrategyGroup:2020pow}.
+
+The most expensive component of the simulator chain~\cite{vanBeekveld:2026uxl} is the sampling of the hard proton-proton collision differential cross section
+\begin{equation} \label{cross-section}
+  \dd \sigma_{p p \rightarrow X_n} = \frac{1}{\mathcal{F}} \sum_{i,j} f_i(x_1) \, f_j(x_2) \, |M_{ij \rightarrow X_n}(\Phi_n)|^2 \, \dd x_1 \, \dd x_2 \, \dd\Phi_n,
+\end{equation}
+where the sum runs over the constituents of the proton (quarks, antiquarks and gluons), $f$ are their corresponding parton density functions, $|M_{ij\rightarrow X_n}|^2$ is the squared matrix element, and $\mathcal{F}$ is the incoming partonic flux factor.
+The integration measure is given by the two partonic momentum fractions $\dd x_{1,2} \in [0,1]$ and the $n$-body phase-space measure $\dd\Phi_n$, which integrates over the final-state momenta while ensuring momentum conservation.
+The total sampling dimensionality of this object is $3n-2$. 
+
+For large multiplicities $n$ and for high theoretical precision, the evaluation of the matrix element can be prohibitively expensive.
+The method used to sample Eq.~\eqref{cross-section} must therefore be as efficient as possible in terms of evaluations, even if this comes at increased algorithmic cost. 
+Current methods are still largely based on the \vegas{} algorithm~\cite{Lepage:1977sw,Lepage:2020tgj} with many physics-inspired improvements~\cite{Kleiss:1994qy,Ohl:1998jn,Maltoni:2002qb,Krauss:2001iv,Papadopoulos:2000tt,Kilian:2007gr,Jadach:2002kn,Gleisberg:2008fv}.
+These methods all rely on an adaptive approximation of an unnormalized target density $\widetilde{p}(x)$ (the differential cross section) by some density $q(x)$ that is easily sampled. 
+One can then sample from $q(x)$ and assign weights $w(x) = \widetilde{p}(x)/q(x)$. 
+To obtain unweighted samples, rejection sampling must be performed with acceptance probability 
+\begin{equation} \label{unweight-efficiency}
+  p_{\texttt{acc}}(x) = \frac{w(x)}{\max_x w(x)}.
+\end{equation}
+The unweighting efficiency $\epsilon = \mathbb{E}_{x \sim q} \left[p_{\texttt{acc}}(x)\right]$ then determines the required number of matrix element evaluations per generated sample.
+Eq.~\ref{unweight-efficiency} is very sensitive to the value of $\max_x w(x)$, which may originate from tiny regions of phase space.
+Thus, to improve efficiency, one may make use of a reduced maximum and leave some undesirable weighted events~\cite{Sherpa:2024mfk}. 
+Nevertheless, for increasing multiplicities, the unweighting efficiency can still degrade by several orders of magnitude~\cite{Hoche:2019flt}.
+
+Recent work has used modern machine-learning (ML) architectures such as normalizing flows in place of \vegas{} to improve efficiencies~\cite{Klimek:2018mza,Bothmann:2020ywa,Gao:2020zvv,Stienen:2020gns,Heimel:2022wyj,Verheyen:2022tov,Heimel:2023ngj,Heimel:2024wph}.
+These approaches are however still ultimately based on rejection sampling and thus inherit its disadvantages. 
+In this work, we propose a different approach based on parallelized Markov chain Monte Carlo (MCMC) supplemented by an ML-based convergence diagnostic. 
+MCMC methods have previously been explored for hard-process phase-space sampling and event generation~\cite{Kharraziha:1999iw,Weinzierl:2001ny,Kroeninger:2014bwa,LaCagnina:2024wcc}.
+Our method places particular emphasis on avoiding within-chain autocorrelations and on reaching MCMC stationarity, i.e. samples being representative of $\widetilde{p}(x)$. 
+Furthermore, we investigate how neural network surrogates of the target distribution can further reduce the required number of matrix-element evaluations~\cite{Danziger:2021eeg,Janssen:2023ahv,Herrmann:2025nnz}.\footnote{Code is provided in the anonymized supplementary material.} 
+
+\section{Method}
+
+We now describe our sampling construction, targeting an unnormalized density $\widetilde{p}(x)$ on the unit hypercube $x\in[0,1]^d$.
+To avoid within-chain autocorrelation, we evolve many Markov chains in parallel on hardware accelerators and retain only the terminal state from each chain.
+The learned Stein discrepancy introduced below is used to determine the relaxation time $t_{\mathrm{rel}}$, i.e. the number of MCMC steps after which the ensemble is representative of the target.
+
+\subsection{Underdamped Langevin Algorithm}
+Our MCMC framework is designed for rapid convergence under two practical constraints: the sampler should be straightforward to run over many parallel chains, and it should use expensive target-density and gradient evaluations sparingly.
+Sophisticated Hamiltonian Monte Carlo (HMC) methods~\cite{neal2011mcmc} like NUTS~\cite{hoffman2014no} implement adaptive trajectory lengths which leads to complex control flow and thus difficult parallelizability.
+Moreover, HMC typically requires several intermediate gradient evaluations before a single Metropolis-Hastings (MH) correction is applied.
+We therefore use an Underdamped Langevin Algorithm (ULA)~\cite{roberts1996exponential,cheng2018underdamped}, which retains momentum between steps while applying an MH correction after each proposal.
+Each parallel chain evolves a position--momentum pair using a leapfrog proposal, a MH correction, partial momentum refreshment, and adaptive step sizes. 
+The complete update and adaptation scheme is given in Appendix~\ref{app:ula}.
+
+\subsection{Mirror Langevin Dynamics}
+After the application of a mapping, the phase-space coordinates used for the cross-section integrand live on the bounded domain $x\in[0,1]^d$, while ULA is most naturally formulated on $\mathbb{R}^d$. 
+We therefore perform the MCMC evolution in mirror space~\cite{Hsieh:2018mld}, in which Langevin dynamics evaluated through a suitable mirror map retain the convergence properties of the corresponding unconstrained algorithm.
+We use the element-wise transform $y_i = \Phi^{-1}(x_i) = \sqrt{2}\,\operatorname{erf}^{-1}(2x_i-1)$.
+The mirrored target density is the corresponding change of variables
+\begin{equation}
+  \log \widetilde{p}_{\mathrm{mir}}(y) = \log \widetilde{p}(\Phi(y)) - \frac{1}{2}\lVert y\rVert^2 + \mathrm{const.}
+\end{equation}
+Note that the constant drops out in the score. 
+
+\subsection{Learned Stein Discrepancy}
+To monitor convergence of the ULA chains, we need a distributional discrepancy that can be evaluated using samples from the chain and the unnormalized density of the target.
+The Stein discrepancy provides such a diagnostic~\cite{gorham2015measuring,anastasiou2023stein}.
+For a vector-valued critic function $f:\mathbb{R}^d\to\mathbb{R}^d$, the Stein discrepancy between a smooth, sampled distribution $p$ and a smooth target distribution $q$ is
+\begin{equation} \label{stein_discrepancy}
+  S(p,q) = \sup_{f \in \mathcal{F}} \mathbb{E}_{x\sim p} \left[s_q(x)^T f(x) + \nabla \cdot f(x)\right],
+\end{equation}
+where $\mathcal{F}$ is a norm-bounded class of differentiable functions for which the expectation over $p$ is finite and $q(x) f(x)$ has vanishing tails.
+For sufficiently rich critic classes, this quantity is non-negative and satisfies $S(p,q)=0$ if and only if $p=q$~\cite{stein2004use}.
+
+Kernel Stein discrepancies are a popular choice for $\mathcal{F}$~\cite{liu2016kernelized,chwialkowski2016kernel,gorham2017measuring}, but their standard estimators involve pairwise sums that scale as $n^2$ in the number of samples $n$. 
+Since we typically work in a regime with large numbers of samples, $n^2$ evaluation is infeasible, and a more natural choice would be one that exploits this large data size. 
+We thus use the learned Stein discrepancy (LSD)~\cite{hu2018stein,grathwohl2020learning}, taking $\mathcal{F}$ to be a class of square-integrable differentiable functions that satisfy the Stein boundary condition, and representing the critic by a neural network $f_\phi$.
+In practice, square integrability is enforced by adding a quadratic regularization term to the training objective,
+\begin{equation} \label{LSD}
+  \mathcal{L}_\lambda(\phi; p,q) = - \mathbb{E}_{x\sim p} \left[s_q(x)^T f_\phi(x) + \nabla \cdot f_\phi(x) - \lambda \lVert f_\phi(x) \rVert^2 \right].
+\end{equation}
+After training, the learned Stein discrepancy is evaluated with the learned critic on a held-out sample, without the regularization term.
+
+\subsection{Sharp Boundaries}
+\label{sharp_boundaries_section}
+Physical cross sections typically involve sharp phase-space cuts, which restrict the target density to an allowed region with a hard boundary. 
+The derivation of Eq.~\ref{stein_discrepancy} involves an integration by parts over this region, and a boundary contribution will thus remain unless the Stein test function has vanishing flux through the cut surface \cite{liu2022estimating,williams2023approximate}. 
+We address this issue by introducing a scalar boundary function $h(x)$ that is positive inside the allowed region and vanishes on the cut boundary.
+The Stein operator is then applied to the vector field $h f$ rather than to $f$ itself~\cite{liu2022estimating,xu2022standardisation},
+\begin{equation}
+  S_h(p,q) = \sup_{f \in \mathcal{F}} \mathbb{E}_{x\sim p} \left[h(x) s_q(x)^T f(x) + h(x) \nabla \cdot f(x) + \nabla h(x)^T f(x)\right].
+\end{equation}
+
+\subsection{Neural Surrogates}
+The sampling strategy described above relies on gradients of the target density.
+Differentiable matrix element implementations have recently become available~\cite{Heinrich:2022xfa,Carrazza:2021zug,Carrazza:2021gpx,Heimel:2024wph,Heimel:2026hgp}, enabling the sampling strategy set out above, but at higher computational expense. 
+This motivates us to consider the use of learned surrogates to reduce the required number of evaluations.
+
+Neural surrogates for scattering amplitudes and matrix elements have been studied extensively~\cite{Bishara:2019iwh,Badger:2020uow,Aylett-Bullock:2021hmo,Maitre:2021uaa,Danziger:2021eeg,Badger:2022hwf,Janssen:2023ahv,Maitre:2023dqz,Bahl:2024gyt,Brehmer:2024yqw,Breso-Pla:2024pda,Herrmann:2025nnz,Bahl:2025xvx,Favaro:2025pgz,Villadamigo:2025our,Beccatini:2025tpk,Bahl:2026jvt,Bahl:2026qaf}.
+In the present setting, one can train a surrogate on a relatively limited set of points without requiring gradients.
+Then, chains can be evolved cheaply through the early part of the trajectory using the surrogate as target, before switching over to a shorter sequence of ULA steps using the exact target. 
+The surrogate is thus only used to accelerate equilibration, while the final evolution remains tied to the physical target density.
+We investigate this strategy in Section~\ref{sec:results}.
+
+\section{Results} \label{sec:results}
+We validate the learned Stein diagnostic on analytically tractable Ornstein--Uhlenbeck targets in Appendix~\ref{app:validation}.
+
+We apply ULA and the LSD diagnostic to sample the cross section for the process $u \bar{u} \rightarrow Z + n g$.
+Matrix elements and their gradients are evaluated using MadJax~\cite{Heinrich:2022xfa} with several modifications for numerical stability. 
+We use the NNPDF4.0 LO set~\cite{NNPDF:2021njg}, and implement the PDF and $\alpha_s$ interpolation in JAX~\cite{bradbury2018jax} following the LHAPDF interpolation prescription~\cite{Buckley:2014ana}.
+We set $\sqrt{s}=13 \,\TeV$ and apply cuts $\pT>20 \, \GeV$ and $|y|<5$ to all final-state particles and a separation cut $\Delta R>0.4$ to the gluons. 
+Phase space is mapped to the $[0,1]^{3n+1}$ hypercube using the Chili~\cite{Bothmann:2023siu} vector boson plus jets map. 
+The Stein diagnostic uses the same critic architecture and optimization strategy as in the OU validation, with $\lambda=0.1$.
+The boundary function is
+\begin{equation}
+  h(x) = \left[ \frac{1}{2+\binom{n}{2}} \left( \frac{1}{1-x_a} + \frac{1}{1-x_b} + \sum_{1\leq i<j\leq n} \frac{1}{1-\Delta R_{\mathrm{cut}}^2 / \Delta R_{ij}^2}\right)\right]^{-1},
+\end{equation}
+for points that pass the cuts, and $0$ for points that do not. 
+
+We use ULA and the LSD diagnostic to generate $10^7$ samples for $n = 0,1,2,3$, both with and without neural surrogates. 
+The surrogate is a residual MLP with five hidden layers of width 128, GeLU activations, and a scalar output.
+It is trained to predict the log cross section from only $10^6$ samples using Adam and a mean-squared error loss.
+We then run ULA on the surrogate for a large number of steps. 
+The terminal states are then used as the initial states for the ULA run, which is otherwise initialized with unit Gaussian samples.
+We define the relaxation time $t_{\mathrm{rel}}$ as the first checkpoint for which the learned LSD is no more than one standard error above zero, $S_{\mathrm{LSD}}\leq \Delta S_{\mathrm{LSD}}$.
+After the trigger, we evolve the chain for a further $\max(0.5\,t_{\mathrm{rel}},50)$ ULA steps.
+Figure~\ref{cross_section_stein_figure} shows the convergence results and summarizes the relaxation-time triggers.
+The surrogate warm start substantially reduces the number of exact-target ULA steps required for relaxation.
+All reported experiments were run on a single NVIDIA GeForce RTX 5090 GPU (32 GB) and required less than 24 hours in total.
+
+\begin{figure}
+  \centering
+  \sbox{\crosssectionsteinplotbox}{\includegraphics[width=0.54\textwidth]{../plots/cross_section_stein_z_workshop.pdf}}
+  \begin{minipage}[t]{0.54\textwidth}
+    \centering
+    \vspace{0pt}
+    \usebox{\crosssectionsteinplotbox}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.40\textwidth}
+    \centering
+    \vspace{0pt}
+    \small
+    \begin{minipage}[c][\dimexpr\ht\crosssectionsteinplotbox+\dp\crosssectionsteinplotbox\relax][c]{\textwidth}
+      \centering
+      \begin{tabular}{lcc}
+        \toprule
+        Process & ULA & ULA (Surrogate) \\
+        \midrule
+        $Z+0g$ & 20 & 5 \\
+        $Z+1g$ & 50 & 5 \\
+        $Z+2g$ & 75 & 35 \\
+        $Z+3g$ & 115 & 55 \\
+        \bottomrule
+      \end{tabular}
+    \end{minipage}
+  \end{minipage}
+  \caption{Convergence and relaxation times. Left: the LSD as a function of the number of ULA steps for $Z+n g$ cross sections. Colours denote gluon multiplicities, while line styles distinguish ULA with and without surrogate initialization. Right: relaxation-time checkpoints $t_{\mathrm{rel}}$.}
+  \label{cross_section_stein_figure}
+\end{figure}
+
+
+
+Figure~\ref{z_observable_validation} compares ULA samples with and without surrogate initialization against independent \vegas{} estimates for four physical observables. 
+The jet-resolution scale $\sqrt{d_{01}}$ is obtained using exclusive $k_t$ clustering with $R=1$~\cite{Catani:1993hr,Ellis:1993tq}. 
+In every case, the terminal ULA samples reproduce the \vegas{} distributions within statistical uncertainties.
+
+\begin{figure}
+\centering
+\begin{subfigure}[t]{0.49\textwidth}
+\includegraphics[width=\textwidth]{../plots/cross_section_validation_workshop/z_pt_v_seed0.pdf}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.49\textwidth}
+\includegraphics[width=\textwidth]{../plots/cross_section_validation_workshop/z_d01_seed0.pdf}
+\end{subfigure}
+\par\vspace{-0.25em}
+\begin{subfigure}[t]{0.49\textwidth}
+\includegraphics[width=\textwidth]{../plots/cross_section_validation_workshop/z_y_x_seed0.pdf}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.49\textwidth}
+\includegraphics[width=\textwidth]{../plots/cross_section_validation_workshop/z_max_abs_y_j_seed0.pdf}
+\end{subfigure}
+\caption{Normalized differential distributions for the $Z$-boson transverse momentum, the exclusive $k_t$ clustering scale $\sqrt{d_{01}}$, the full-system boost rapidity $\frac{1}{2}\log(x_a/x_b)$, and the largest absolute gluon rapidity $\max_i |y^{j_i}|$. Filled markers show the \vegas{} reference, solid lines show ULA samples, and dotted lines show ULA samples after surrogate initialization. The lower panels show the corresponding ratios to \vegas{} for each multiplicity.}
+\label{z_observable_validation}
+\end{figure}
+
+
+\section{Discussion}
+
+The results above suggest that gradient-based parallel MCMC is a practically viable alternative to rejection-based event generation, at least in the regime studied here.
+The central practical quantity is the number of exact matrix-element evaluations needed before terminal samples can be used.
+For the $Z+n g$ examples, the learned Stein diagnostic triggers after a modest number of exact-target ULA steps, and the increase with multiplicity is mild over the range considered.
+This is encouraging because unweighting efficiencies can degrade by orders of magnitude as the final-state multiplicity increases~\cite{Danziger:2021eeg,Janssen:2023ahv}. 
+Furthermore, the methods explored here generate strictly unweighted events, while in the usual rejection sampling setup residual weights may remain when using the maximum weight would otherwise reduce the efficiency even further.
+Like conventional rejection-based generation, our method is also naturally parallel: each chain can be evolved independently, while the adaptation and Stein diagnostic require only ensemble-level reductions.
+This makes the method well-matched to GPU/TPU execution.
+
+The required number of evaluations can be further reduced through the use of surrogate initialization.
+In our implementation the surrogate is deliberately simple: it uses the same network architecture as the Stein critic and is trained on a comparatively small set of uniformly sampled phase-space points.
+Nevertheless, it substantially shortens the exact-target relaxation time.
+This should be viewed as a conservative demonstration rather than an optimized surrogate strategy.
+More expressive architectures, improved training samples, or active refinement in the regions explored by the chains could plausibly make the warm start closer to the physical target and further reduce the number of exact matrix-element and gradient evaluations.
+
+Reverse-mode automatic differentiation requires one forward and backward pass, so for tree-level matrix elements composed of rational functions, gradient evaluation should approach a small constant-factor overhead over regular evaluation~\cite{baur1983complexity,griewank2012invented}.
+
+The present study considers a fixed partonic channel, tree-level matrix elements, and a simple phase-space map. 
+The observed scaling, and more generally any comparison with current methods, can only be tested in the context of an implementation in full event generator programs.
+Still, the combination of parallel chains, an explicit relaxation-time diagnostic, and surrogate initialization provides a concrete route towards event generation in which the expensive exact target is evaluated as few times as possible.
+
+\begin{ack}
+This work was supported by the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme (grant agreement No. 788223, PanScales).
+\end{ack}
+
+\bibliographystyle{JHEP}
+\bibliography{refs}
+
+\clearpage
+\input{checklist.tex}
+
+\clearpage
+\appendix
+\section{Underdamped Langevin algorithm}
+\label{app:ula}
+In this appendix, we describe the Underdamped Langevin algorithm implementation in detail. 
+Each MCMC chain carries a position $x$ and a velocity $v$. 
+We assume we have access to the score $s(x) = \nabla \log \widetilde{p}(x)$. 
+For stability purposes the score is regularized component-wise to $\widetilde{s}_i(x) = s_i(x) / (1 + \eta_i |s_i(x)|)$, where $\eta_i$ are the MCMC step sizes~\cite{brosse2019tamed}.
+At time step $t$, a new proposal $x'$, $v'$ is generated following the leapfrog step 
+\begin{align}
+  v_{1/2} &= v_t + \frac{1}{2}\Lambda_\eta \, \widetilde{s}(x_t), \nonumber \\
+  x' &= x_t + \Lambda_\eta \, v_{1/2}, \nonumber \\
+  v' &= v_{1/2} + \frac{1}{2}\Lambda_\eta \, \widetilde{s}(x'),
+\end{align}
+where $\Lambda_\eta=\operatorname{diag}(\eta_1,\ldots,\eta_d)$.
+This step discretizes the Hamiltonian dynamics on the augmented density
+\begin{equation}
+  \pi(x,v) \propto \widetilde{p}(x)\exp\left(-\frac{1}{2}v^Tv\right).
+\end{equation}
+In the continuous-time limit, the Hamiltonian flow conserves the Hamiltonian $H(x,v) = -\log \widetilde{p}(x) + v^Tv/2$ and preserves phase-space volume. 
+As a result, $\pi(x,v)$ as well as its $x$-marginal, which is proportional to the desired target density $\widetilde{p}(x)$, is invariant.
+However, at finite step sizes an integration error is introduced.
+By applying a MH acceptance step with probability
+\begin{equation}
+  a = \min\left\{1, \exp\left[-H(x',v') + H(x_t,v_t)\right]\right\}
+\end{equation}
+the discretization bias is corrected.
+Upon rejection, the position is kept and the incoming momentum is reversed $v_t \rightarrow -v_t$. 
+After the MH step, the momentum is refreshed
+\begin{equation}
+  v_{t+1} = \beta v_{\mathrm{acc}} + \sqrt{1-\beta^2}\,\zeta, \qquad \zeta \sim \mathcal{N}(0,I).
+\end{equation}
+These momentum updates preserve the Gaussian velocity marginal and inject randomness into the otherwise deterministic Hamiltonian evolution, allowing the chain to move between trajectories and explore the full target distribution.
+After equilibration, terminal positions drawn from these chains are distributed according to $\widetilde{p}(x)$.
+
+We write the step sizes as $\log\eta_i=\log\epsilon+\log\rho_i$, with $\sum_i\log\rho_i=0$.
+The scalar scale $\epsilon$ is initialized by doubling or halving until the average acceptance probability is close to one half~\cite{hoffman2014no}, while the directions $\rho_i$ are initialized from the diagonal score second moment, motivated by Fisher preconditioning~\cite{girolami2011riemann,Titsias:2023},
+\begin{equation}
+  F_{ii,t} = \mathbb{E}_{x_t}\left[s_i(x_t)^2\right],
+  \qquad
+  \log\rho_i = -\frac{1}{2}\log F_{ii,t} + \frac{1}{2d}\sum_{j=1}^d \log F_{jj,t}.
+\end{equation}
+This fixes $\prod_i\rho_i=1$ and increases step sizes in directions with smaller typical score variation.
+During the chain, $\log\epsilon$ is adapted by ascending the expected squared jump distance $\mathrm{ESJD}(\epsilon)= \mathbb{E}_{x_t,v_t,\zeta}\left[a \lVert x' - x_t \rVert^2\right]$ at fixed $\rho$, a standard proxy for MCMC efficiency~\cite{gelman1997weak,pasarica2010adaptively}.
+The directions are adapted by updating $\rho_i$ with new estimates of the diagonal score second moment.
+Both the ESJD scale update and the score-moment direction update use the same diminishing Robbins--Monro schedule, so that the transition-kernel changes vanish asymptotically, as required for stationarity~\cite{robbins1951stochastic,Roberts:2007adaptive}.
+All expectations are evaluated over the parallel chain ensemble.
+
+\section{Stein diagnostic validation}
+\label{app:validation}
+In this appendix, we validate the Stein diagnostic on a target for which the MCMC convergence can be computed analytically.
+Starting from a fixed point $\mu_0$ away from some target Gaussian mean $\mu_q$ and diagonal target $\Sigma_q$, we sample an exact Ornstein--Uhlenbeck (OU) transition kernel
+\begin{equation}
+  x_{t+1} = \mu_q + e^{-\eta \Sigma_q^{-1}}(x_t-\mu_q) + \Sigma_q^{1/2} \left(I-e^{-2\eta\Sigma_q^{-1}}\right)^{1/2}\xi, \qquad \xi\sim\mathcal{N}(0,I),
+\end{equation}
+where $\eta$ is the step size.
+After $t$ steps, the marginal distribution is Gaussian with
+\begin{align}
+  \mu_t &= \mu_q + e^{-t\eta\Sigma_q^{-1}}(\mu_0-\mu_q) \nonumber \\
+  \Sigma_t &= \Sigma_q\left(I-e^{-2t\eta\Sigma_q^{-1}}\right).
+\end{align}
+Thus $p_t$ converges to the target density as $t\to\infty$, yielding a controlled and testable sequence of distributions.
+To validate the role of the boundary function, we apply a radial cut that removes $20\%$ of the target probability mass centered around the target mean $\mu_q$.
+
+Under Eq.~\eqref{LSD}, the optimal Stein discrepancy is~\cite{hu2018stein}
+\begin{equation}
+  S_{\mathrm{opt}}(p_t,q) = \frac{1}{2\lambda} \mathbb{E}_{x\sim p_t} \left[ \left\lVert s_q(x)-s_{p_t}(x) \right\rVert^2 \right].
+\end{equation}
+We compare this optimal value against the LSD computed on OU samples and on ULA samples.
+The validation results use dimensions $d=4$ and $d=16$, with target parameters
+\begin{equation}
+  \mu_q = \operatorname{linspace}(-2,2,d),
+  \qquad
+  \Sigma_q = \operatorname{diag}\!\left(\operatorname{linspace}(0.5,2,d)^2\right).
+\end{equation}
+The OU process is initialized from the fixed point $\mu_0=\mu_q+3$, while ULA is initialized from a unit Gaussian.
+The LSD regularization is $\lambda=0.1$.
+The Stein critic is modelled with a five-layer residual GeLU network with hidden width 128.
+Optimization is performed with the Adam optimizer~\cite{kingma2014adam} on $n=10^7$ chains, and final LSD values are obtained using 10-fold cross validation.
+The boundary function is $h(x) = \max\{1-r_{\mathrm{cut}}^2 / r^2(x),0\}$.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{ou_stein_d4_d16_mass_cut_0p2.pdf}
+\caption{The LSD as a function of the number of steps for the exact OU reference process with $\eta=0.5$ (red) and the underdamped Langevin algorithm (ULA, blue). Dashed lines show the boundary-function ablation. The black line shows the analytic optimal Stein discrepancy $S_{\mathrm{opt}}$.}
+\label{OU_figure}
+\end{figure}
+
+The validation results are shown in Fig.~\ref{OU_figure}.
+For the exact OU samples, the learned LSD tracks the analytic value $S_{\mathrm{opt}}$, supporting its use as a quantitative convergence diagnostic.
+The ULA curves show similar monotonic decay towards zero, with the higher-dimensional case converging more slowly, qualitatively consistent with the expected $\sqrt{d}$ scaling of Metropolis-adjusted Langevin methods~\cite{chewi2021optimal}.
+In the absence of the boundary function, the remaining finite boundary contribution prevents the Stein discrepancy from approaching zero.
+
+\end{document}

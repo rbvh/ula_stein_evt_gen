@@ -131,6 +131,11 @@ parser.add_argument(
     default=None,
     help="Output plot path (default: plots/cross_section_stein_<process-or-vb>.pdf)",
 )
+parser.add_argument(
+    "--compact",
+    action="store_true",
+    help="Use a shorter workshop layout without changing text or legend sizes.",
+)
 parser.add_argument("--no_tex", action="store_true")
 args = parser.parse_args()
 
@@ -162,7 +167,8 @@ out_dir = os.path.dirname(args.output)
 if out_dir:
     os.makedirs(out_dir, exist_ok=True)
 
-fig, ax = plt.subplots(figsize=(0.5 * TEXTWIDTH, 3.35))
+fig_height = 2.90 if args.compact else 3.35
+fig, ax = plt.subplots(figsize=(0.5 * TEXTWIDTH, fig_height))
 linthresh = 1e-3
 all_y_values = []
 all_y_upper_values = []

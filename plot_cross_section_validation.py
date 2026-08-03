@@ -5,6 +5,7 @@ import re
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.transforms import Bbox
 from matplotlib import ticker
 import numpy as np
 
@@ -436,7 +437,16 @@ def linear_limits(values, errors):
     return min(0.0, lo - 0.08 * span), hi + 0.45 * span
 
 
-def plot_observable(loaded, observable, x_label, y_label, out_path, vb, log_y=False):
+def plot_observable(
+    loaded,
+    observable,
+    x_label,
+    y_label,
+    out_path,
+    vb,
+    log_y=False,
+    compact=False,
+):
     results = [
         item
         for item in loaded
@@ -447,8 +457,15 @@ def plot_observable(loaded, observable, x_label, y_label, out_path, vb, log_y=Fa
         return False
 
     n_ratios = len(results)
-    height_ratios = [4.4] + [1.15] * n_ratios
-    fig_height = max(3.35, 2.25 + 0.6 * n_ratios)
+    if compact:
+        # Preserve the font and legend sizes while reducing only the vertical
+        # extent of the data panels.  The ratio axes remain tall enough for
+        # their tick labels and in-panel multiplicity labels.
+        height_ratios = [3.7] + [0.9] * n_ratios
+        fig_height = max(3.15, 1.65 + 0.525 * n_ratios)
+    else:
+        height_ratios = [4.4] + [1.15] * n_ratios
+        fig_height = max(3.35, 2.25 + 0.6 * n_ratios)
     fig, axes = plt.subplots(
         n_ratios + 1,
         1,
@@ -595,7 +612,7 @@ def plot_observable(loaded, observable, x_label, y_label, out_path, vb, log_y=Fa
         label_ha = "center" if is_rapidity_like(observable) else "left"
         axr.text(
             label_x,
-            0.82,
+            0.90 if compact else 0.82,
             label,
             transform=axr.transAxes,
             ha=label_ha,
@@ -612,6 +629,11 @@ def plot_observable(loaded, observable, x_label, y_label, out_path, vb, log_y=Fa
         axr.tick_params(which="minor", right=False)
 
     fixed_y_limits = fixed_ratio_ylim(observable)
+    use_compact_ratio_ticks = compact and fixed_y_limits == (0.75, 1.25)
+    if use_compact_ratio_ticks:
+        # Keep the boundary tick labels of adjacent compact ratio panels from
+        # crowding one another without changing the central comparison range.
+        fixed_y_limits = (0.70, 1.30)
     if fixed_y_limits is None:
         ylo, yhi = ratio_ylim(
             [ratio for ratio, _ in all_ratio_bands],
@@ -622,6 +644,8 @@ def plot_observable(loaded, observable, x_label, y_label, out_path, vb, log_y=Fa
     for idx, axr in enumerate(ratio_axes):
         axr.set_ylim(ylo, yhi)
         axr.set_xlim(edges[0], edges[-1])
+        if use_compact_ratio_ticks:
+            axr.yaxis.set_major_locator(ticker.FixedLocator([0.8, 1.0, 1.2]))
         if idx != len(ratio_axes) - 1:
             axr.tick_params(labelbottom=False)
     ratio_axes[-1].set_xlabel(x_label, labelpad=2)
@@ -694,7 +718,7 @@ def plot_observable(loaded, observable, x_label, y_label, out_path, vb, log_y=Fa
     if is_rapidity_like(observable):
         method_legend_kwargs = {
             "loc": "lower center",
-            "bbox_to_anchor": (0.5, 0.05),
+            "bbox_to_anchor": (0.5, 0.0 if compact else 0.05),
             "ncol": 1,
         }
     first_legend = ax.legend(
@@ -724,7 +748,18 @@ def plot_observable(loaded, observable, x_label, y_label, out_path, vb, log_y=Fa
         ha="center",
         fontsize=8.5,
     )
-    fig.savefig(out_path, bbox_inches="tight")
+    # A tight bounding box varies with the width of each observable's labels,
+    # which makes equally sized LaTeX panels appear to have different widths.
+    # Compact workshop plots instead use a common fixed-width canvas, with a
+    # small left allowance for the differential and shared ratio labels.
+    if compact:
+        fig_width, fig_height = fig.get_size_inches()
+        compact_bbox = Bbox.from_bounds(
+            -0.10, -0.08, fig_width + 0.20, fig_height - 0.17
+        )
+        fig.savefig(out_path, bbox_inches=compact_bbox)
+    else:
+        fig.savefig(out_path, bbox_inches="tight")
     plt.close(fig)
     return True
 
@@ -738,6 +773,11 @@ parser.add_argument(
     "--vegas_dir", type=str, default="results/cross_section_validation/vegas"
 )
 parser.add_argument("--out_dir", type=str, default="plots/cross_section_validation")
+parser.add_argument(
+    "--compact",
+    action="store_true",
+    help="Use a shorter workshop layout without changing text or legend sizes.",
+)
 parser.add_argument("--no_tex", action="store_true")
 args = parser.parse_args()
 
@@ -775,5 +815,6 @@ for observable in discover_observables(loaded):
         out_path,
         args.vb,
         log_y=log_y,
+        compact=args.compact,
     ):
         print(f"Saved {out_path}")
