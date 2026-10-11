@@ -1,5 +1,8 @@
 import jax
 import jax.numpy as jnp
+import numpy as np
+
+from ula_stein_evt_gen.mc_utils import compute_unweighting_statistics
 
 
 class VegasIntegrator:
@@ -102,3 +105,35 @@ class VegasIntegrator:
             "value": mean,
             "error": err,
         }
+
+    def measure_unweighting(self, rng, n_points=10_000_000, batch_size=100_000,
+                           quantiles=(0.01, 0.001), status_fn=None):
+        """Survey the frozen proposal; keep only weights on the host.
+
+        n_points counts all proposed events, including those failing cuts.
+        No grid adaptation or random accept/reject step is performed here.
+        """
+        if n_points < 2 or batch_size < 1:
+            raise ValueError("n_points must be at least 2 and batch_size positive.")
+        weights = np.empty(n_points, dtype=np.float64)
+        for start in range(0, n_points, batch_size):
+            rng, rng_batch = jax.random.split(rng)
+            stop = min(start + batch_size, n_points)
+            batch_weights = self.weighted_sample(rng_batch, stop - start)[3]
+            weights[start:stop] = np.asarray(jax.device_get(batch_weights), dtype=np.float64)
+            if status_fn is not None:
+                status_fn(f"Surveyed {stop}/{n_points} VEGAS trials.")
+        efficiencies = compute_unweighting_statistics(weights, quantiles)
+        return {
+            "n_trials": n_points,
+            "zero_weight_fraction": float(np.mean(weights == 0.0)),
+            "cross_section": float(np.mean(weights)),
+            "cross_section_error": float(np.std(weights, ddof=1) / np.sqrt(n_points)),
+            "efficiencies": efficiencies,
+        }
+
+    def get_unweighting_efficiency(self, rng, n_points=10_000_000,
+                                  quantiles=(0.01, 0.001), batch_size=100_000):
+        """Return epsilon_a for a fresh, batched survey of the fitted grid."""
+        survey = self.measure_unweighting(rng, n_points, batch_size, quantiles)
+        return {a: stats["epsilon"] for a, stats in survey["efficiencies"].items()}

@@ -25,7 +25,6 @@
 \newcommand{\Zjets}{Z+\mathrm{jets}}
 \newcommand{\udl}{\mathrm{UDL}}
 \newcommand{\vegas}{\textsc{Vegas}}
-\newsavebox{\crosssectionsteinplotbox}
 
 \title{Event Generation with Parallel Langevin Sampling and Learned Stein Diagnostics}
 \author{
@@ -236,7 +235,7 @@ In the absence of the boundary function, the remaining finite boundary contribut
 We now apply ULA and the LSD diagnostic to sample the cross section for the process $u \bar{u} \rightarrow Z + n g$.
 Matrix elements and their gradients are evaluated using MadJax~\cite{Heinrich:2022xfa} with several modifications for numerical stability. 
 We use the NNPDF4.0 LO set~\cite{NNPDF:2021njg}, and implement the PDF and $\alpha_s$ interpolation in JAX~\cite{bradbury2018jax} following the LHAPDF interpolation prescription~\cite{Buckley:2014ana}.
-We set $\sqrt{s}=13 \,\TeV$ and apply cuts $\pT>20 \, \GeV$ and $|y|<5$ to all final-state particles and a separation cut $\Delta R>0.4$ to the gluons. 
+We set $\sqrt{s}=13 \,\TeV$ and apply cuts $\pT>20 \, \GeV$ ($n\geq1$) and $|y|<5$ to all final-state particles and a separation cut $\Delta R>0.4$ to the gluons.
 Phase space is mapped to the $[0,1]^{3n+1}$ hypercube using the Chili~\cite{Bothmann:2023siu} vector boson plus jets map. 
 The Stein diagnostic uses the same critic architecture and optimization strategy as in the OU validation, with $\lambda=0.1$.
 The boundary function is
@@ -252,43 +251,44 @@ We then run ULA on the surrogate for a large number of steps.
 The terminal states are then used as the initial states for the ULA run, which is otherwise initialized with unit Gaussian samples.
 We define the relaxation time $t_{\mathrm{rel}}$ as the first checkpoint for which the learned LSD is no more than one standard error above zero, $S_{\mathrm{LSD}}\leq \Delta S_{\mathrm{LSD}}$.
 After the trigger, we evolve the chain for a further $\max(0.5\,t_{\mathrm{rel}},50)$ ULA steps.
-The convergence results are shown in Fig.~\ref{cross_section_stein_figure}, and relaxation-time triggers are summarized in Table~\ref{tab:cross_section_relaxation_times}.
+The convergence results are shown in Fig.~\ref{cross_section_stein_figure}, and relaxation-time triggers are summarized alongside \vegas{} unweighting results in Table~\ref{tab:cross_section_relaxation_times}.
 The surrogate warm start substantially reduces the number of exact-target ULA steps required for relaxation.
+
+We compare with \vegas{}, reporting $1/\epsilon$, i.e. the number of weighted events per unweighted event.
+Following standard practice, we also report $1/\epsilon_{0.001}$ and $1/\epsilon_{0.01}$, in which overweights contributing the quoted fractions to the total integral are allowed to remain.
 
 \begin{figure}
   \centering
-  \sbox{\crosssectionsteinplotbox}{\includegraphics[width=0.54\textwidth]{cross_section_stein_z.pdf}}
-  \begin{minipage}[t]{0.54\textwidth}
-    \centering
-    \vspace{0pt}
-    \usebox{\crosssectionsteinplotbox}
-    \caption{The LSD as a function of the number of ULA steps for $Z+n g$ cross sections. Colours denote gluon multiplicities, while line styles distinguish ULA with and without surrogate initialization.}
-    \label{cross_section_stein_figure}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[t]{0.40\textwidth}
-    \centering
-    \vspace{0pt}
-    \small
-    \begin{minipage}[c][\dimexpr\ht\crosssectionsteinplotbox+\dp\crosssectionsteinplotbox\relax][c]{\textwidth}
-      \centering
-      \begin{tabular}{lcc}
-        \toprule
-        Process & ULA & ULA (Surrogate) \\
-        \midrule
-        $Z+0g$ & 20 & 5 \\
-        $Z+1g$ & 50 & 5 \\
-        $Z+2g$ & 75 & 35 \\
-        $Z+3g$ & 115 & 55 \\
-        \bottomrule
-      \end{tabular}
-    \end{minipage}
-    \captionof{table}{Relaxation-time checkpoints $t_{\mathrm{rel}}$ for the cross-section runs.}
-    \label{tab:cross_section_relaxation_times}
-  \end{minipage}
+  \includegraphics[width=0.54\textwidth]{cross_section_stein_z.pdf}
+  \caption{The LSD as a function of the number of ULA steps for $Z+n g$ cross sections. Colours denote gluon multiplicities, while line styles distinguish ULA with and without surrogate initialization.}
+  \label{cross_section_stein_figure}
 \end{figure}
 
+\begin{table}[htbp]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lccccc}
+    \toprule
+    & \multicolumn{2}{c}{ULA $t_{\mathrm{rel}}$} & \multicolumn{3}{c}{\vegas{}} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-6}
+    Process & Standard & Surrogate & $1/\epsilon$ & $1/\epsilon_{0.001}$ & $1/\epsilon_{0.01}$ \\
+    \midrule
+    $Z+0g$ & 20 & 5 & $2.69 \pm 5.5\times10^{-5}$ & $2.53 \pm 8.2\times10^{-4}$ & $1.25 \pm 2.5\times10^{-4}$ \\
+    $Z+1g$ & 50 & 5 & $20.0 \pm 0.49$ & $8.75 \pm 0.029$ & $4.31 \pm 2.2\times10^{-3}$ \\
+    $Z+2g$ & 75 & 35 & $540 \pm 140$ & $74.8 \pm 2.3$ & $30.0 \pm 0.085$ \\
+    $Z+3g$ & 115 & 55 & $1450 \pm 240$ & $460 \pm 23$ & $148 \pm 1.3$ \\
+    \bottomrule
+  \end{tabular}
+  \captionsetup{position=bottom,skip=7pt}
+  \caption{Exact-target ULA relaxation-time checkpoints and \vegas{} inverse unweighting efficiencies for the same cross sections.
+  To estimate the substantial uncertainties, errors are computed for the \vegas{} results over 10 runs.}
+  \label{tab:cross_section_relaxation_times}
+\end{table}
 
+We observe that the \vegas{} proposal requirement increases substantially with gluon multiplicity, while Langevin relaxation time grows much more mildly.
+Allowing residual weights improves efficiencies considerably, but leaves some events with non-unit weights, whereas the MCMC construction directly produces unit-weight events.
+We note that methods like \vegas{} benefit greatly from techniques like multichanneling~\cite{Kleiss:1994qy}, and a more comprehensive comparison should be performed in the context of a full event generator.
 
 To confirm convergence of the ULA chains, we show the normalized distributions of several nontrivial physical observables in Figures~\ref{z_observable_validation_one} and~\ref{z_observable_validation_two}. 
 We validate ULA results with and without surrogate initialization against independent \vegas{} estimates. 

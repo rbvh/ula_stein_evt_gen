@@ -12,6 +12,7 @@
 \usepackage{bm}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{wrapfig}
 \usepackage{subcaption}
 \usepackage{xcolor}
 \usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
@@ -26,7 +27,6 @@
 \newcommand{\Zjets}{Z+\mathrm{jets}}
 \newcommand{\udl}{\mathrm{UDL}}
 \newcommand{\vegas}{\textsc{Vegas}}
-\newsavebox{\crosssectionsteinplotbox}
 
 \title{Event Generation with Parallel Langevin Sampling and Learned Stein Diagnostics}
 \author{
@@ -153,7 +153,7 @@ We validate the learned Stein diagnostic on analytically tractable Ornstein--Uhl
 We apply ULA and the LSD diagnostic to sample the cross section for the process $u \bar{u} \rightarrow Z + n g$.
 Matrix elements and their gradients are evaluated using MadJax~\cite{Heinrich:2022xfa} with several modifications for numerical stability. 
 We use the NNPDF4.0 LO set~\cite{NNPDF:2021njg}, and implement the PDF and $\alpha_s$ interpolation in JAX~\cite{bradbury2018jax} following the LHAPDF interpolation prescription~\cite{Buckley:2014ana}.
-We set $\sqrt{s}=13 \,\TeV$ and apply cuts $\pT>20 \, \GeV$ and $|y|<5$ to all final-state particles and a separation cut $\Delta R>0.4$ to the gluons. 
+We set $\sqrt{s}=13 \,\TeV$ and apply cuts $\pT>20 \, \GeV$ ($n\geq1$) and $|y|<5$ to all final-state particles and a separation cut $\Delta R>0.4$ to the gluons.
 Phase space is mapped to the $[0,1]^{3n+1}$ hypercube using the Chili~\cite{Bothmann:2023siu} vector boson plus jets map. 
 The Stein diagnostic uses the same critic architecture and optimization strategy as in the OU validation, with $\lambda=0.1$.
 The boundary function is
@@ -162,49 +162,52 @@ The boundary function is
 \end{equation}
 for points that pass the cuts, and $0$ for points that do not. 
 
-We use ULA and the LSD diagnostic to generate $10^7$ samples for $n = 0,1,2,3$, both with and without neural surrogates. 
+\begin{wrapfigure}{r}{0.50\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../plots/cross_section_stein_z_workshop.pdf}
+  \caption{The LSD as a function of the number of ULA steps for $Z+n g$ cross sections. Colours denote gluon multiplicities, while line styles distinguish ULA with and without surrogate initialization.}
+  \label{cross_section_stein_figure}
+\end{wrapfigure}
+
+We use ULA and the LSD diagnostic to generate $10^7$ samples for $n = 0,1,2,3$, both with and without neural surrogates.
 The surrogate is a residual MLP with five hidden layers of width 128, GeLU activations, and a scalar output.
 It is trained to predict the log cross section from only $10^6$ samples using Adam and a mean-squared error loss.
 We then run ULA on the surrogate for a large number of steps. 
 The terminal states are then used as the initial states for the ULA run, which is otherwise initialized with unit Gaussian samples.
 We define the relaxation time $t_{\mathrm{rel}}$ as the first checkpoint for which the learned LSD is no more than one standard error above zero, $S_{\mathrm{LSD}}\leq \Delta S_{\mathrm{LSD}}$.
 After the trigger, we evolve the chain for a further $\max(0.5\,t_{\mathrm{rel}},50)$ ULA steps.
-Figure~\ref{cross_section_stein_figure} shows the convergence results and summarizes the relaxation-time triggers.
+Figure~\ref{cross_section_stein_figure} shows the convergence results, and relaxation-time triggers are summarized alongside \vegas{} unweighting results in Table~\ref{tab:cross_section_relaxation_times}.
 The surrogate warm start substantially reduces the number of exact-target ULA steps required for relaxation.
-All reported experiments were run on a single NVIDIA GeForce RTX 5090 GPU (32 GB) and required less than 24 hours in total.
+The MCMC and surrogate experiments were run on a single NVIDIA GeForce RTX 5090 GPU (32 GB) and required less than 24 hours in total.
 
-\begin{figure}
+We compare with \vegas{}, reporting $1/\epsilon$, i.e. the number of weighted events per unweighted event.
+Following standard practice, we also report $1/\epsilon_{0.001}$ and $1/\epsilon_{0.01}$, in which overweights contributing the quoted fractions to the total integral are allowed to remain.
+
+\begin{table}[htbp]
   \centering
-  \sbox{\crosssectionsteinplotbox}{\includegraphics[width=0.54\textwidth]{../plots/cross_section_stein_z_workshop.pdf}}
-  \begin{minipage}[t]{0.54\textwidth}
-    \centering
-    \vspace{0pt}
-    \usebox{\crosssectionsteinplotbox}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[t]{0.40\textwidth}
-    \centering
-    \vspace{0pt}
-    \small
-    \begin{minipage}[c][\dimexpr\ht\crosssectionsteinplotbox+\dp\crosssectionsteinplotbox\relax][c]{\textwidth}
-      \centering
-      \begin{tabular}{lcc}
-        \toprule
-        Process & ULA & ULA (Surrogate) \\
-        \midrule
-        $Z+0g$ & 20 & 5 \\
-        $Z+1g$ & 50 & 5 \\
-        $Z+2g$ & 75 & 35 \\
-        $Z+3g$ & 115 & 55 \\
-        \bottomrule
-      \end{tabular}
-    \end{minipage}
-  \end{minipage}
-  \caption{Convergence and relaxation times. Left: the LSD as a function of the number of ULA steps for $Z+n g$ cross sections. Colours denote gluon multiplicities, while line styles distinguish ULA with and without surrogate initialization. Right: relaxation-time checkpoints $t_{\mathrm{rel}}$.}
-  \label{cross_section_stein_figure}
-\end{figure}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lccccc}
+    \toprule
+    & \multicolumn{2}{c}{ULA $t_{\mathrm{rel}}$} & \multicolumn{3}{c}{\vegas{}} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-6}
+    Process & Standard & Surrogate & $1/\epsilon$ & $1/\epsilon_{0.001}$ & $1/\epsilon_{0.01}$ \\
+    \midrule
+    $Z+0g$ & 20 & 5 & $2.69 \pm 5.5\times10^{-5}$ & $2.53 \pm 8.2\times10^{-4}$ & $1.25 \pm 2.5\times10^{-4}$ \\
+    $Z+1g$ & 50 & 5 & $20.0 \pm 0.49$ & $8.75 \pm 0.029$ & $4.31 \pm 2.2\times10^{-3}$ \\
+    $Z+2g$ & 75 & 35 & $540 \pm 140$ & $74.8 \pm 2.3$ & $30.0 \pm 0.085$ \\
+    $Z+3g$ & 115 & 55 & $1450 \pm 240$ & $460 \pm 23$ & $148 \pm 1.3$ \\
+    \bottomrule
+  \end{tabular}
+  \captionsetup{position=bottom,skip=7pt}
+  \caption{Exact-target ULA relaxation-time checkpoints and \vegas{} inverse unweighting efficiencies for the same cross sections.
+  To estimate the substantial uncertainties, errors are computed for the \vegas{} results over 10 runs.}
+  \label{tab:cross_section_relaxation_times}
+\end{table}
 
-
+We observe that the \vegas{} proposal requirement increases substantially with gluon multiplicity, while Langevin relaxation time grows much more mildly.
+Allowing residual weights improves efficiencies considerably, but leaves some events with non-unit weights, whereas the MCMC construction directly produces unit-weight events.
+We note that methods like \vegas{} benefit greatly from techniques like multichanneling~\cite{Kleiss:1994qy}, and a more comprehensive comparison should be performed in the context of a full event generator.
 
 Figure~\ref{z_observable_validation} compares ULA samples with and without surrogate initialization against independent \vegas{} estimates for four physical observables. 
 The jet-resolution scale $\sqrt{d_{01}}$ is obtained using exclusive $k_t$ clustering with $R=1$~\cite{Catani:1993hr,Ellis:1993tq}. 
@@ -234,25 +237,15 @@ In every case, the terminal ULA samples reproduce the \vegas{} distributions wit
 
 \section{Discussion}
 
-The results above suggest that gradient-based parallel MCMC is a practically viable alternative to rejection-based event generation, at least in the regime studied here.
-The central practical quantity is the number of exact matrix-element evaluations needed before terminal samples can be used.
-For the $Z+n g$ examples, the learned Stein diagnostic triggers after a modest number of exact-target ULA steps, and the increase with multiplicity is mild over the range considered.
-This is encouraging because unweighting efficiencies can degrade by orders of magnitude as the final-state multiplicity increases~\cite{Danziger:2021eeg,Janssen:2023ahv}. 
-Furthermore, the methods explored here generate strictly unweighted events, while in the usual rejection sampling setup residual weights may remain when using the maximum weight would otherwise reduce the efficiency even further.
-Like conventional rejection-based generation, our method is also naturally parallel: each chain can be evolved independently, while the adaptation and Stein diagnostic require only ensemble-level reductions.
-This makes the method well-matched to GPU/TPU execution.
+We illustrated that parallel Langevin sampling with a learned Stein diagnostic offers a practical route to direct unit-weight event generation.
+For the $Z+$ jets processes studied here, relaxation times grow more mildly with gluon multiplicity than \vegas{} inverse unweighting efficiencies and are further reduced by neural surrogate initialization.
 
-The required number of evaluations can be further reduced through the use of surrogate initialization.
-In our implementation the surrogate is deliberately simple: it uses the same network architecture as the Stein critic and is trained on a comparatively small set of uniformly sampled phase-space points.
-Nevertheless, it substantially shortens the exact-target relaxation time.
-This should be viewed as a conservative demonstration rather than an optimized surrogate strategy.
-More expressive architectures, improved training samples, or active refinement in the regions explored by the chains could plausibly make the warm start closer to the physical target and further reduce the number of exact matrix-element and gradient evaluations.
-
+Our method requires gradient evaluations, whose cost affects the runtime.
 Reverse-mode automatic differentiation requires one forward and backward pass, so for tree-level matrix elements composed of rational functions, gradient evaluation should approach a small constant-factor overhead over regular evaluation~\cite{baur1983complexity,griewank2012invented}.
 
-The present study considers a fixed partonic channel, tree-level matrix elements, and a simple phase-space map. 
-The observed scaling, and more generally any comparison with current methods, can only be tested in the context of an implementation in full event generator programs.
-Still, the combination of parallel chains, an explicit relaxation-time diagnostic, and surrogate initialization provides a concrete route towards event generation in which the expensive exact target is evaluated as few times as possible.
+The present study considers a fixed partonic channel, tree-level matrix elements, and a simple phase-space map.
+Establishing the scaling at higher multiplicity and comparing with production methods requires implementation in a full event generator.
+The parallel chains, convergence diagnostic, and surrogate initialization provide a concrete starting point for that study.
 
 \begin{ack}
 This work was supported by the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme (grant agreement No. 788223, PanScales).

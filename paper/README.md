@@ -10,6 +10,11 @@ This directory contains a single-file LaTeX paper framework:
 - `Makefile`: build helpers
 - `latexmkrc`: local latexmk configuration
 
+Both manuscripts include the VEGAS unweighting comparison and the clarification
+that the transverse-momentum cut applies only for positive gluon multiplicity.
+The workshop main text fits within five pages, with references beginning on page six.
+See the repository README for the efficiency runner and saved measurements.
+
 Build with:
 
 ```bash
